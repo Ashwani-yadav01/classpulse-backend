@@ -5,6 +5,8 @@ import com.classpulse.backend.common.exception.UnauthorizedException;
 import com.classpulse.backend.security.TeacherSecurityService;
 import com.classpulse.backend.session.dto.CreateSessionRequest;
 import com.classpulse.backend.session.dto.SessionResponse;
+import com.classpulse.backend.websocket.event.WebSocketEventPublisher;
+import com.classpulse.backend.websocket.event.WebSocketEventType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -29,6 +32,9 @@ class SessionServiceTest {
 
     @Mock
     private SessionRepository sessionRepository;
+
+    @Mock
+    private WebSocketEventPublisher eventPublisher;
 
     private TeacherSecurityService teacherSecurityService;
     private QrCodeService qrCodeService;
@@ -42,7 +48,7 @@ class SessionServiceTest {
         teacherSecurityService = new TeacherSecurityService("master-secret");
         qrCodeService = new QrCodeService("http://localhost:3000/join");
         fixedClock = Clock.fixed(now, ZoneId.of("UTC"));
-        sessionService = new SessionService(sessionRepository, teacherSecurityService, qrCodeService, fixedClock);
+        sessionService = new SessionService(sessionRepository, teacherSecurityService, qrCodeService, fixedClock, eventPublisher);
     }
 
     @Test
@@ -155,5 +161,28 @@ class SessionServiceTest {
 
         assertThat(session.getStatus()).isEqualTo(SessionStatus.EXPIRED);
         verify(sessionRepository).save(session);
+    }
+
+    @Test
+    void closeSession_shouldUpdateStatusAndPublishWebSocketEvent() {
+        UUID sessionId = UUID.randomUUID();
+        String token = "valid-token";
+        Session session = Session.builder()
+                .id(sessionId)
+                .title("History")
+                .joinCode("HIST01")
+                .status(SessionStatus.ACTIVE)
+                .teacherTokenHash(com.classpulse.backend.common.CryptoUtils.hashToken(token))
+                .createdAt(now)
+                .expiresAt(now.plus(Duration.ofHours(24)))
+                .build();
+
+        when(sessionRepository.findById(sessionId)).thenReturn(Optional.of(session));
+
+        SessionResponse response = sessionService.closeSession(sessionId, token, null);
+
+        assertThat(response.getStatus()).isEqualTo(SessionStatus.CLOSED);
+        verify(sessionRepository).save(session);
+        verify(eventPublisher).publishSessionEvent(eq(WebSocketEventType.SESSION_CLOSED), eq(sessionId), any());
     }
 }

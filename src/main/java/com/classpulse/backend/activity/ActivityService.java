@@ -110,6 +110,12 @@ public class ActivityService {
     public Optional<ActivityResponse> getActiveActivityForParticipant(UUID sessionId, String participantToken) {
         participantSecurityService.authenticateParticipantForSession(participantToken, sessionId);
 
+        Session session = sessionService.getSessionOrThrow(sessionId);
+        sessionService.checkAndEnforceExpiry(session);
+        if (session.getStatus() != SessionStatus.ACTIVE) {
+            return Optional.empty();
+        }
+
         return activityRepository.findBySessionIdAndStatus(sessionId, ActivityStatus.ACTIVE)
                 .map(act -> mapToResponse(act, false));
     }

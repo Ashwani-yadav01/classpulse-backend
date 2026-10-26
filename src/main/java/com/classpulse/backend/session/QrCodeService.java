@@ -28,10 +28,12 @@ public class QrCodeService {
     }
 
     public byte[] generateQrCodePng(String joinCode, int width, int height) {
+        int safeWidth = Math.min(Math.max(width, 50), 2000);
+        int safeHeight = Math.min(Math.max(height, 50), 2000);
         try {
             String joinUrl = buildJoinUrl(joinCode);
             QRCodeWriter qrCodeWriter = new QRCodeWriter();
-            BitMatrix bitMatrix = qrCodeWriter.encode(joinUrl, BarcodeFormat.QR_CODE, width, height);
+            BitMatrix bitMatrix = qrCodeWriter.encode(joinUrl, BarcodeFormat.QR_CODE, safeWidth, safeHeight);
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream);

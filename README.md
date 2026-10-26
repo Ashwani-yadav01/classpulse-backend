@@ -1,15 +1,19 @@
-# ClassPulse — Interactive Classroom Backend (Phase 3: Activity Foundation)
+# ClassPulse — Interactive Classroom Backend
 
-ClassPulse is a high-performance, teacher-focused interactive classroom platform inspired by Wooclap. Phase 3 builds the shared activity foundation for the seven interactive activity types, covering persistence, typed configuration validation, teacher ownership, lifecycle state transitions, and concurrency protection.
+ClassPulse is a high-performance, teacher-focused interactive classroom platform inspired by Wooclap. Built with Java 21, Spring Boot 4.1.2, PostgreSQL, Flyway, Spring Data JPA, Spring Security, and WebSocket with STOMP messaging.
+
+The platform allows teachers to create classroom sessions lasting 24 hours by default. Students join frictionlessly via a 6-character joining code or QR code and enter a display name without requiring email authentication. Within a session, teachers run multiple activities sequentially: Multiple Choice Questions (MCQ), Polls, Word Cloud, Open Questions, Random Student Picker, Brainstorming, and Prioritization.
 
 ---
 
-## 1. Tech Stack
-- **Framework**: Spring Boot 4.1.2 (Java 21)
-- **Database**: PostgreSQL with Flyway schema migrations
-- **ORM**: Spring Data JPA / Hibernate
-- **Security**: Spring Security with token-based teacher authorization and hashed participant tokens
-- **QR Codes**: ZXing 3.5.3
+## 1. Tech Stack & Architecture
+- **Language & Runtime**: Java 21 (JDK 21.0.10)
+- **Framework**: Spring Boot 4.1.2
+- **Persistence & Migrations**: Spring Data JPA / Hibernate, PostgreSQL, Flyway (V1–V4 migrations)
+- **Security**: Spring Security with token-based teacher authorization, SHA-256 hashed participant tokens, IDOR protection, and sanitized error responses
+- **Real-Time Communication**: WebSocket with STOMP messaging broker (`/topic`, `/queue`) and channel authorization interceptor
+- **QR Code Generation**: ZXing 3.5.3 with dimension clamping
+- **Observability**: Spring Boot Actuator (`/actuator/health`, `/actuator/info`)
 
 ---
 
@@ -193,18 +197,77 @@ If a client experiences network disruption or disconnects:
 
 ---
 
-## 5. Running and Testing
+## 6. Environment Variables & Production Configuration
 
-### Run Tests
+Configure the application via environment variables or `.env`:
+
+| Variable | Description | Default |
+|---|---|---|
+| `SERVER_PORT` | HTTP server port | `8080` |
+| `SPRING_DATASOURCE_URL` | PostgreSQL JDBC connection URL | `jdbc:postgresql://localhost:5432/classpulse` |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `postgres` |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `postgres` |
+| `TEACHER_MASTER_KEY` | Secret key for session creation and administrative overrides | `dev-teacher-secret-key-change-in-production` |
+| `FRONTEND_JOIN_URL` | Base URL used for participant QR code links | `http://localhost:3000/join` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed frontend origins | `*` (set to `https://app.classpulse.com` in prod) |
+
+---
+
+## 7. Running, Testing & Deployment
+
+### Run All Tests
 ```bash
 mvn test
 ```
+All 60 tests execute against an isolated in-memory PostgreSQL-compatible database without requiring external Docker services.
 
-### Run Locally
+### Build Production Fat JAR
 ```bash
-# Start PostgreSQL container
+mvn package
+```
+Generates self-contained executable JAR at `target/classpulse-backend-0.0.1-SNAPSHOT.jar`.
+
+### Run via Executable JAR
+```bash
+java -jar target/classpulse-backend-0.0.1-SNAPSHOT.jar
+```
+
+### Run via Docker Compose
+```bash
+# Start PostgreSQL database service
 docker compose up -d postgres
 
-# Run backend
-mvn spring-boot:run
+# Start full stack (PostgreSQL + ClassPulse Backend)
+docker compose up -d --build
 ```
+
+---
+
+## 8. Health & Observability (Actuator)
+- **Health Check**: `GET /actuator/health` -> returns `{"status":"UP"}`
+- **Application Info**: `GET /actuator/info`
+
+---
+
+## 9. Frontend Integration Quickstart
+
+### Teacher Workflow:
+1. **Create Session**: `POST /api/v1/sessions` with `X-Teacher-Key: <TEACHER_MASTER_KEY>`. Store the returned `id` (`sessionId`) and `teacherToken`.
+2. **Create Activity**: `POST /api/v1/sessions/{sessionId}/activities` with `X-Teacher-Token: <teacherToken>`.
+3. **Activate Activity**: `POST /api/v1/sessions/{sessionId}/activities/{activityId}/activate` with `X-Teacher-Token: <teacherToken>`.
+4. **Listen to Real-Time Updates**:
+   - Connect STOMP to `/ws` with header `X-Teacher-Token: <teacherToken>`.
+   - Subscribe to `/topic/sessions/{sessionId}` (session events) and `/topic/sessions/{sessionId}/activities/{activityId}` (activity responses).
+5. **Manage Activity**:
+   - Toggle visibility: `PATCH /api/v1/sessions/{sessionId}/activities/{activityId}/visibility`.
+   - Close activity: `POST /api/v1/sessions/{sessionId}/activities/{activityId}/close`.
+   - Close session: `POST /api/v1/sessions/{sessionId}/close`.
+
+### Student / Participant Workflow:
+1. **Join Session**: `POST /api/v1/sessions/join` with `{"joinCode": "CODE", "displayName": "Display Name"}`. Store `participantToken`.
+2. **Check Active Activity**: `GET /api/v1/sessions/{sessionId}/activities/active` with `X-Participant-Token: <participantToken>`.
+3. **Listen to Real-Time Updates**:
+   - Connect STOMP to `/ws` with header `X-Participant-Token: <participantToken>`.
+   - Subscribe to `/topic/sessions/{sessionId}` and `/topic/sessions/{sessionId}/activities/{activityId}`.
+4. **Submit Response**: `POST /api/v1/sessions/{sessionId}/activities/{activityId}/responses` with `X-Participant-Token: <participantToken>`.
+5. **Fetch Results**: `GET /api/v1/sessions/{sessionId}/activities/{activityId}/results` with `X-Participant-Token: <participantToken>`.

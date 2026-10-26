@@ -171,10 +171,37 @@
     - Stable event types: `ACTIVITY_ACTIVATED`, `ACTIVITY_CLOSED`, `RESPONSE_SUBMITTED`, `RESULTS_UPDATED`, `WORD_CLOUD_UPDATED`, `BRAINSTORMING_IDEA_ADDED`, `PRIORITIZATION_UPDATED`, `RANDOM_PICKER_SELECTED`, `RESULT_VISIBILITY_CHANGED`, `SESSION_CLOSED`.
     - Event payloads contain privacy-safe identifiers and state notifications; raw tokens, hashes, and hidden answer keys are never broadcast.
 
-- [ ] **Phase 8: Integration Tests, Regression Testing, Documentation, and Final Audit**
+- [x] **Phase 8: Integration Tests, Regression Testing, Documentation, Security Audit, and Final Readiness**
+  - **Comprehensive Security & Architecture Audit**:
+    - Performed audit across all 7 activity types (`MCQ`, `POLL`, `WORD_CLOUD`, `OPEN_QUESTION`, `RANDOM_PICKER`, `BRAINSTORMING`, `PRIORITIZATION`).
+    - Verified cross-session boundaries (participants and teachers strictly isolated to authorized sessions).
+    - Hardened `GlobalExceptionHandler`:
+      - Added dedicated handlers for `AccessDeniedException` (HTTP 403 Forbidden).
+      - Added dedicated handlers for `MissingRequestHeaderException` and `HttpMessageNotReadableException` (HTTP 400 Bad Request).
+      - Sanitized fallback `Exception` handler to prevent leaking internal database schema, SQL errors, or stack traces in HTTP 500 responses; logs securely via SLF4J.
+    - Hardened QR code generation in `QrCodeService` by clamping dimensions between 50 and 2000 pixels, preventing memory exhaustion (DoS) attacks.
+    - Added `SESSION_CLOSED` real-time WebSocket event emission in `SessionService.closeSession` notifying connected participants immediately.
+    - Enforced session status checks in `ActivityService.getActiveActivityForParticipant` preventing inactive/expired sessions from serving active activities to participants.
+    - Configured production-grade CORS support with configurable `classpulse.cors.allowed-origins` (`${CORS_ALLOWED_ORIGINS:*}`) across both HTTP security filter chain and WebSocket STOMP endpoints.
+    - Enabled Spring Boot Actuator `/actuator/health` and `/actuator/info` endpoints for observability and deployment health checks.
+  - **Regression & Security Test Suite**:
+    - Created `Phase8SecurityAndAuditTest` with 8 comprehensive security and audit tests:
+      1. `/actuator/health` endpoint accessibility and UP status.
+      2. Malformed JSON payload sanitization and HTTP 400 response format.
+      3. Cross-session participant attack rejection (HTTP 403 Forbidden).
+      4. Closed session participant rejection and active activity lockdown (HTTP 403 Forbidden).
+      5. Dynamically expired session rejection (HTTP 410 Gone) and automatic transition to `EXPIRED`.
+      6. Teacher-only authorization enforcement for Random Student Picker (HTTP 401 unauthenticated, HTTP 403 participant token).
+      7. QR code dimension clamping resilience against absurd sizes (5 and 100,000 pixels).
+      8. IDOR cross-teacher session manipulation prevention (HTTP 403 Forbidden).
+  - **Verification Results**:
+    - Total tests run: **60 tests** across 10 test suites.
+    - Failures: **0**, Errors: **0**, Skipped: **0**.
+    - Executable fat JAR packaged successfully: `target/classpulse-backend-0.0.1-SNAPSHOT.jar` (62.5 MB).
 
 ---
 
 ## 4. Known Limitations & MVP Security Notes
 - **Teacher Authentication**: The MVP uses a session-specific token (`X-Teacher-Token`) generated on session creation, with an optional master teacher key (`TEACHER_MASTER_KEY`). For full enterprise production, this can be integrated with OAuth2 / OIDC / Keycloak or email-based teacher accounts.
 - **Participant Tokens**: Secure random tokens stored with SHA-256 hashes allow frictionless student joining without email credentials. If a student clears browser storage, they can rejoin under a new display name or use a reconnect token if stored.
+- **WebSocket Broker**: Uses Spring's in-memory SimpleBroker (`/topic`, `/queue`). Suitable for single-instance deployments and small-to-medium clusters. For high-throughput multi-node horizontal scaling, configure an external STOMP broker relay (e.g., RabbitMQ or ActiveMQ).

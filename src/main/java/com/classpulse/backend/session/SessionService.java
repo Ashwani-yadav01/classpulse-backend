@@ -6,6 +6,8 @@ import com.classpulse.backend.security.TeacherSecurityService;
 import com.classpulse.backend.session.dto.CreateSessionRequest;
 import com.classpulse.backend.session.dto.SessionPublicInfoResponse;
 import com.classpulse.backend.session.dto.SessionResponse;
+import com.classpulse.backend.websocket.event.WebSocketEventPublisher;
+import com.classpulse.backend.websocket.event.WebSocketEventType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,6 +27,7 @@ public class SessionService {
     private final TeacherSecurityService teacherSecurityService;
     private final QrCodeService qrCodeService;
     private final Clock clock;
+    private final WebSocketEventPublisher eventPublisher;
 
     @Value("${classpulse.session.default-duration-hours:24}")
     private int defaultDurationHours = 24;
@@ -103,6 +107,12 @@ public class SessionService {
             session.setStatus(SessionStatus.CLOSED);
             session.setClosedAt(clock.instant());
             sessionRepository.save(session);
+
+            eventPublisher.publishSessionEvent(
+                    WebSocketEventType.SESSION_CLOSED,
+                    session.getId(),
+                    Map.of("sessionId", session.getId().toString(), "status", "CLOSED")
+            );
         }
 
         return mapToResponse(session, null);
