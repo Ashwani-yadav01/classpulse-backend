@@ -4,11 +4,11 @@
 ALTER TABLE responses ALTER COLUMN selected_option_id DROP NOT NULL;
 
 -- 2. Add text_response and normalized_text to responses
-ALTER TABLE responses ADD COLUMN text_response VARCHAR(1000);
-ALTER TABLE responses ADD COLUMN normalized_text VARCHAR(1000);
+ALTER TABLE responses ADD COLUMN IF NOT EXISTS text_response VARCHAR(1000);
+ALTER TABLE responses ADD COLUMN IF NOT EXISTS normalized_text VARCHAR(1000);
 
 -- 3. Prioritization rankings table
-CREATE TABLE prioritization_ranks (
+CREATE TABLE IF NOT EXISTS prioritization_ranks (
     id UUID PRIMARY KEY,
     response_id UUID NOT NULL REFERENCES responses(id) ON DELETE CASCADE,
     option_id UUID NOT NULL REFERENCES activity_options(id) ON DELETE CASCADE,
@@ -17,16 +17,17 @@ CREATE TABLE prioritization_ranks (
     CONSTRAINT uq_prioritization_response_rank UNIQUE (response_id, rank_order)
 );
 
-CREATE INDEX idx_prioritization_response ON prioritization_ranks(response_id);
-CREATE INDEX idx_prioritization_option ON prioritization_ranks(option_id);
+CREATE INDEX IF NOT EXISTS idx_prioritization_response ON prioritization_ranks(response_id);
+CREATE INDEX IF NOT EXISTS idx_prioritization_option ON prioritization_ranks(option_id);
 
 -- 4. Random picker selections history table
-CREATE TABLE random_picker_selections (
+CREATE TABLE IF NOT EXISTS random_picker_selections (
     id UUID PRIMARY KEY,
     activity_id UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
     participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
     picked_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
+ALTER TABLE random_picker_selections ADD COLUMN IF NOT EXISTS picked_at TIMESTAMP WITH TIME ZONE;
 
-CREATE INDEX idx_random_picker_activity ON random_picker_selections(activity_id);
-CREATE INDEX idx_random_picker_participant ON random_picker_selections(participant_id);
+CREATE INDEX IF NOT EXISTS idx_random_picker_activity ON random_picker_selections(activity_id);
+CREATE INDEX IF NOT EXISTS idx_random_picker_participant ON random_picker_selections(participant_id);

@@ -1,14 +1,14 @@
 package com.classpulse.backend.security;
 
-import com.classpulse.backend.common.CryptoUtils;
-import com.classpulse.backend.common.exception.ForbiddenException;
-import com.classpulse.backend.common.exception.ResourceNotFoundException;
-import com.classpulse.backend.common.exception.SessionExpiredException;
-import com.classpulse.backend.common.exception.UnauthorizedException;
-import com.classpulse.backend.participant.Participant;
-import com.classpulse.backend.participant.ParticipantRepository;
-import com.classpulse.backend.session.Session;
-import com.classpulse.backend.session.SessionStatus;
+import com.classpulse.backend.exception.ForbiddenException;
+import com.classpulse.backend.exception.SessionExpiredException;
+import com.classpulse.backend.exception.UnauthorizedException;
+import com.classpulse.backend.model.Participant;
+import com.classpulse.backend.model.Session;
+import com.classpulse.backend.model.SessionStatus;
+import com.classpulse.backend.repository.ParticipantRepository;
+import com.classpulse.backend.util.CryptoUtils;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,15 +1,16 @@
 package com.classpulse.backend.security;
 
-import com.classpulse.backend.activity.ActivityStatus;
-import com.classpulse.backend.activity.ActivityType;
-import com.classpulse.backend.activity.dto.ActivityOptionDto;
-import com.classpulse.backend.activity.dto.CreateActivityRequest;
-import com.classpulse.backend.participant.dto.JoinSessionRequest;
-import com.classpulse.backend.response.dto.SubmitResponseRequest;
-import com.classpulse.backend.session.Session;
-import com.classpulse.backend.session.SessionRepository;
-import com.classpulse.backend.session.SessionStatus;
-import com.classpulse.backend.session.dto.CreateSessionRequest;
+import com.classpulse.backend.dto.ActivityOptionDto;
+import com.classpulse.backend.dto.CreateActivityRequest;
+import com.classpulse.backend.dto.CreateSessionRequest;
+import com.classpulse.backend.dto.JoinSessionRequest;
+import com.classpulse.backend.dto.SubmitResponseRequest;
+import com.classpulse.backend.exception.ErrorResponse;
+import com.classpulse.backend.model.ActivityType;
+import com.classpulse.backend.model.Participant;
+import com.classpulse.backend.model.Session;
+import com.classpulse.backend.repository.SessionRepository;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

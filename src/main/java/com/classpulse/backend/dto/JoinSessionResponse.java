@@ -1,0 +1,21 @@
+package com.classpulse.backend.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class JoinSessionResponse {
+    private UUID participantId;
+    private UUID sessionId;
+    private String displayName;
+    private String participantToken;
+    private Instant joinedAt;
+}
